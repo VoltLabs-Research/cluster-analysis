@@ -10,9 +10,9 @@ class ClusterAnalysisConan(ConanFile):
     settings = "os", "arch", "compiler", "build_type"
     requires = (
         "coretoolkit/1.0.0",
-        "spdlog/1.14.1",  # Needed for linking
-        "fmt/10.2.1",  # Needed for linking (spdlog uses external fmt)
-        "nlohmann_json/3.11.3",  # Needed for json_utils.h
+        "spdlog/1.14.1",
+        "fmt/10.2.1",
+        "nlohmann_json/3.11.3",
     )
     exports_sources = "CMakeLists.txt", "include/*", "src/*"
 
