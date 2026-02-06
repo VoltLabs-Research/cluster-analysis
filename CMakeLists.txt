@@ -38,11 +38,9 @@ find_package(fmt REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(OpenMP REQUIRED)
 
-# Collect all library sources (analysis, wrappers)
-file(GLOB_RECURSE LIB_SOURCES 
-	${CMAKE_SOURCE_DIR}/src/analysis/*.cpp
-	${CMAKE_SOURCE_DIR}/src/wrappers/*.cpp
-)
+# Collect all library sources (exclude main.cpp)
+file(GLOB LIB_SOURCES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/src/*.cpp)
+list(FILTER LIB_SOURCES EXCLUDE REGEX ".*main\\.cpp$")
 
 # Create static library with algorithm implementation
 add_library(${PROJECT_NAME}_lib STATIC ${LIB_SOURCES})
@@ -57,7 +55,7 @@ target_link_libraries(${PROJECT_NAME}_lib PUBLIC
 set_target_properties(${PROJECT_NAME}_lib PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 # Create executable
-add_executable(${PROJECT_NAME} ${CMAKE_SOURCE_DIR}/src/functions/cluster_analysis.cpp)
+add_executable(${PROJECT_NAME} ${CMAKE_SOURCE_DIR}/src/main.cpp)
 target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/include)
 target_link_libraries(${PROJECT_NAME} PRIVATE 
     ${PROJECT_NAME}_lib 

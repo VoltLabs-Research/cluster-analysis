@@ -1,11 +1,11 @@
-#include <opendxa/cli/common.h>
-#include <opendxa/wrappers/cluster_analysis.h>
+#include <volt/cli/common.h>
+#include <volt/cluster_analysis_service.h>
 
-using namespace OpenDXA;
-using namespace OpenDXA::CLI;
+using namespace Volt;
+using namespace Volt::CLI;
 
 void showUsage(const std::string& name) {
-    printUsageHeader(name, "OpenDXA - Cluster Analysis");
+    printUsageHeader(name, "Volt - Cluster Analysis");
     std::cerr
         << "  --cutoff <float>              Cutoff radius for neighbor search. [default: 3.2]\n"
         << "  --sortBySize                  Sort clusters by size (desc). [default: true]\n"
@@ -31,7 +31,7 @@ int main(int argc, char* argv[]) {
     }
 
     auto parallel = initParallelism(opts, false);
-    initLogging("opendxa-cluster-analysis", parallel.threads);
+    initLogging("volt-cluster-analysis", parallel.threads);
 
     LammpsParser::Frame frame;
     if (!parseFrame(filename, frame)) return 1;
@@ -39,7 +39,7 @@ int main(int argc, char* argv[]) {
     outputBase = deriveOutputBase(filename, outputBase);
     spdlog::info("Output base: {}", outputBase);
 
-    ClusterAnalysisWrapper analyzer;
+    ClusterAnalysisService analyzer;
     analyzer.setCutoff(getDouble(opts, "--cutoff", 3.2));
 
     analyzer.setOptions(

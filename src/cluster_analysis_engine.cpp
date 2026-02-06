@@ -1,5 +1,5 @@
-#include <opendxa/analysis/cluster_analysis.h>
-#include <opendxa/analysis/cutoff_neighbor_finder.h>
+#include <volt/cluster_analysis_engine.h>
+#include <volt/analysis/cutoff_neighbor_finder.h>
 #include <spdlog/spdlog.h>
 #include <algorithm>
 #include <numeric>
@@ -7,14 +7,14 @@
 #include <cmath>
 #include <limits>
 
-namespace OpenDXA{
+namespace Volt{
 
-using namespace OpenDXA::Particles;
+using namespace Volt::Particles;
 
-ClusterAnalysis::ClusterAnalysisEngine::ClusterAnalysisEngine(
+ClusterAnalysisEngine::ClusterAnalysisEngine(
     ParticleProperty* positions,
     const SimulationCell& cell,
-    NeighborMode neighborMode,
+    ClusterAnalysis::NeighborMode neighborMode,
     double cutoff,
     bool sortBySize,
     bool unwrapParticleCoordinates,
@@ -36,13 +36,13 @@ ClusterAnalysis::ClusterAnalysisEngine::ClusterAnalysisEngine(
     if(!_positions){
         throw std::runtime_error("ClusterAnalysisEngine: positions is null");
     }
-    if(_cutoff <= 0.0 && _neighborMode == CutoffRange){
+    if(_cutoff <= 0.0 && _neighborMode == ClusterAnalysis::CutoffRange){
         throw std::runtime_error("ClusterAnalysisEngine: cutoff must be > 0 for cutoff clustering");
     }
 }
 
 
-void ClusterAnalysis::ClusterAnalysisEngine::perform(){
+void ClusterAnalysisEngine::perform(){
     const size_t n = _positions->size();
 
     if(n == 0){
@@ -88,8 +88,8 @@ void ClusterAnalysis::ClusterAnalysisEngine::perform(){
         _gyrationTensors = std::make_shared<ParticleProperty>(0, DataType::Double, 6, 0, false);
     }
 
-    if(_neighborMode == Bonding){
-        throw std::runtime_error("ClusterAnalysisEngine: Bonding mode is not implemented in OpenDXA CLI analyzer yet (missing bonds topology in frame).");
+    if(_neighborMode == ClusterAnalysis::Bonding){
+        throw std::runtime_error("ClusterAnalysisEngine: Bonding mode is not implemented in Volt CLI analyzer yet (missing bonds topology in frame).");
     }
 
     std::vector<Point3> centers;
@@ -109,7 +109,7 @@ void ClusterAnalysis::ClusterAnalysisEngine::perform(){
     }
 }
 
-void ClusterAnalysis::ClusterAnalysisEngine::doClusteringCutoff(std::vector<Point3>& centerOfMass){
+void ClusterAnalysisEngine::doClusteringCutoff(std::vector<Point3>& centerOfMass){
     const std::size_t n = _positions->size();
 
     CutoffNeighborFinder neighFinder;
@@ -188,7 +188,7 @@ void ClusterAnalysis::ClusterAnalysisEngine::doClusteringCutoff(std::vector<Poin
     }
 }
 
-void ClusterAnalysis::ClusterAnalysisEngine::computeGyration(const std::vector<Point3>& centersOfMass){
+void ClusterAnalysisEngine::computeGyration(const std::vector<Point3>& centersOfMass){
     if(!_radiiOfGyration || !_gyrationTensors) return;
     if(!_unwrappedPositions) return;
 
@@ -244,7 +244,7 @@ void ClusterAnalysis::ClusterAnalysisEngine::computeGyration(const std::vector<P
     }
 }
 
-void ClusterAnalysis::ClusterAnalysisEngine::buildClusterSizes(){
+void ClusterAnalysisEngine::buildClusterSizes(){
     _clusterSizes = std::make_shared<ParticleProperty>(_numClusters, DataType::Int64, 1, 0, true);
 
     for(size_t i = 0; i < _numClusters; i++){
@@ -266,14 +266,14 @@ void ClusterAnalysis::ClusterAnalysisEngine::buildClusterSizes(){
     }
 }
 
-void ClusterAnalysis::ClusterAnalysisEngine::buildClusterIds(){
+void ClusterAnalysisEngine::buildClusterIds(){
     _clusterIDs = std::make_shared<ParticleProperty>(_numClusters, DataType::Int64, 1, 0, true);
     for(size_t i = 0; i < _numClusters; i++){
         _clusterIDs->setInt64(i, static_cast<int64_t>(i + 1));
     }
 }
 
-void ClusterAnalysis::ClusterAnalysisEngine::sortClustersBySize(){
+void ClusterAnalysisEngine::sortClustersBySize(){
     if(!_clusterSizes || _numClusters == 0) return;
 
     std::vector<size_t> mapping(_numClusters);
@@ -291,7 +291,7 @@ void ClusterAnalysis::ClusterAnalysisEngine::sortClustersBySize(){
         inv[mapping[newIdx] + 1] = newIdx + 1;
     }
 
-    // Remp particle cluster IDs
+    // Remap particle cluster IDs
     const size_t n = _positions->size();
     for(size_t i = 0; i < n; i++){
         int cid = _particleClusters->getInt(i);
