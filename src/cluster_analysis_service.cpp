@@ -36,7 +36,7 @@ json ClusterAnalysisService::compute(const LammpsParser::Frame& frame, const std
     if(frame.natoms <= 0)
         return AnalysisResult::failure("Invalid number of atoms");
 
-    auto positions = FrameAdapter::createPositionProperty(frame);
+    auto positions = FrameAdapter::createPositionPropertyShared(frame);
     if(!positions)
         return AnalysisResult::failure("Failed to create position property");
 
