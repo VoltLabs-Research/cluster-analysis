@@ -1,6 +1,7 @@
 #include <volt/cluster_analysis_service.h>
 #include <volt/core/frame_adapter.h>
 #include <volt/core/analysis_result.h>
+#include <volt/utilities/json_utils.h>
 #include <spdlog/spdlog.h>
 
 namespace Volt{
@@ -63,12 +64,16 @@ json ClusterAnalysisService::compute(const LammpsParser::Frame& frame, const std
     result["largest_cluster_size"] = engine.largestClusterSize();
     result["has_zero_weight_cluster"] = engine.hasZeroWeightCluster();
 
-    if(!outputFilename.empty()){
-        // TODO: Implement msgpack export in standalone package
-        spdlog::warn("File output not yet implemented in standalone package");
-    }
-
     result["clusters"] = json::array();
+
+    if(!outputFilename.empty()){
+        const std::string outputPath = outputFilename + "_cluster_analysis.msgpack";
+        if(JsonUtils::writeJsonMsgpackToFile(result, outputPath, false)){
+            spdlog::info("Cluster analysis msgpack written to {}", outputPath);
+        }else{
+            spdlog::warn("Could not write cluster analysis msgpack: {}", outputPath);
+        }
+    }
 
     return result;
 }
