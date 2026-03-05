@@ -57,14 +57,64 @@ json ClusterAnalysisService::compute(const LammpsParser::Frame& frame, const std
 
     engine.perform();
 
-    json result = AnalysisResult::success();
-    AnalysisResult::addTiming(result, startTime);
-    result["cutoff"] = _cutoff;
-    result["cluster_count"] = engine.numClusters();
-    result["largest_cluster_size"] = engine.largestClusterSize();
-    result["has_zero_weight_cluster"] = engine.hasZeroWeightCluster();
+    auto clusters = engine.particleClusters();
+    auto unwrapped = engine.unwrappedPositions();
+    auto clusterSizes = engine.clusterSizes();
+    auto clusterIds = engine.clusterIDs();
+    auto centers = engine.centersOfMass();
+    auto rg = engine.radiiOfGyration();
+    auto gt = engine.gyrationTensors();
 
-    result["clusters"] = json::array();
+    const size_t k = engine.numClusters();
+
+    json result;
+    result["main_listing"] = {
+        { "total_atoms", frame.natoms },
+        { "clusters", static_cast<int>(k) },
+        { "largest_cluster_size", engine.largestClusterSize() },
+        { "has_zero_weight_cluster", engine.hasZeroWeightCluster() }
+    };
+
+    // sub_listings: cluster_list
+    json clusterList = json::array();
+    for(size_t ci = 0; ci < k; ci++){
+        json c;
+        c["cluster_id"] = static_cast<int64_t>(ci + 1);
+        c["size"] = clusterSizes ? clusterSizes->getInt64(ci) : 0;
+
+        if(centers){
+            const Point3 p = centers->getPoint3(ci);
+            c["center"] = {p.x(), p.y(), p.z()};
+        }
+
+        if(rg)  c["radius_of_gyration"] = rg->getDouble(ci);
+
+        if(gt){
+            json tensor = json::array();
+            for(int comp = 0; comp < 6; comp++) tensor.push_back(gt->getDoubleComponent(ci, comp));
+            c["gyration_tensor"] = tensor;
+        }
+
+        clusterList.push_back(c);
+    }
+
+    result["sub_listings"] = { { "clusters", clusterList } };
+
+    // per-atom-properties
+    json perAtom = json::array();
+    for(int i = 0; i < frame.natoms; i++){
+        json a;
+        a["id"] = frame.ids[i];
+        a["cluster"] = clusters ? clusters->getInt(i) : 0;
+
+        if(unwrapped){
+            const Point3 p = unwrapped->getPoint3(i);
+            a["pos_unwrapped"] = {p.x(), p.y(), p.z()};
+        }
+
+        perAtom.push_back(a);
+    }
+    result["per-atom-properties"] = perAtom;
 
     if(!outputFilename.empty()){
         const std::string outputPath = outputFilename + "_cluster_analysis.msgpack";
@@ -75,6 +125,7 @@ json ClusterAnalysisService::compute(const LammpsParser::Frame& frame, const std
         }
     }
 
+    spdlog::info("Cluster analysis completed. Clusters: {}, largest: {}", k, engine.largestClusterSize());
     return result;
 }
 
