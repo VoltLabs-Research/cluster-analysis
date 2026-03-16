@@ -33,6 +33,7 @@ set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type")
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Debug Release MinSizeRel RelWithDebInfo)
 
 find_package(coretoolkit REQUIRED)
+find_package(TBB REQUIRED)
 find_package(Boost REQUIRED)
 find_package(spdlog REQUIRED)
 find_package(nlohmann_json REQUIRED)
@@ -71,7 +72,11 @@ add_executable(${PROJECT_NAME} ${CMAKE_SOURCE_DIR}/src/main.cpp)
 target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/include)
 target_precompile_headers(${PROJECT_NAME} PRIVATE <volt/core/volt.h>)
 target_link_libraries(${PROJECT_NAME} PRIVATE 
-    ${PROJECT_NAME}_lib 
+    ${PROJECT_NAME}_lib
+    TBB::tbb
+    ${CLUSTER_ANALYSIS_BOOST_TARGET}
+    coretoolkit::coretoolkit
+    spdlog::spdlog
 )
 
 install(TARGETS ${PROJECT_NAME} DESTINATION bin)
