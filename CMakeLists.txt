@@ -72,9 +72,6 @@ target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/include)
 target_precompile_headers(${PROJECT_NAME} PRIVATE <volt/core/volt.h>)
 target_link_libraries(${PROJECT_NAME} PRIVATE 
     ${PROJECT_NAME}_lib 
-    ${CLUSTER_ANALYSIS_BOOST_TARGET}
-    coretoolkit::coretoolkit
-    spdlog::spdlog
 )
 
 install(TARGETS ${PROJECT_NAME} DESTINATION bin)

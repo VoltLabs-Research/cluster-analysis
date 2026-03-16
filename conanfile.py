@@ -8,9 +8,6 @@ class ClusterAnalysisConan(ConanFile):
     package_type = "static-library"
     license = "MIT"
     settings = "os", "arch", "compiler", "build_type"
-    default_options = {
-        "hwloc/*:shared": True,
-    }
     requires = (
         "boost/1.88.0",
         "coretoolkit/1.0.0",
