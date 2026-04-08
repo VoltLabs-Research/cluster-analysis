@@ -8,8 +8,10 @@ class ClusterAnalysisConan(ConanFile):
     package_type = "static-library"
     license = "MIT"
     settings = "os", "arch", "compiler", "build_type"
+    default_options = {"hwloc/*:shared": True}
     requires = (
         "boost/1.88.0",
+        "onetbb/2021.12.0",
         "coretoolkit/1.0.0",
         "spdlog/1.14.1",
         "nlohmann_json/3.11.3",
@@ -39,6 +41,7 @@ class ClusterAnalysisConan(ConanFile):
         self.cpp_info.libs = ["cluster-analysis_lib"]
         self.cpp_info.requires = [
             "boost::headers",
+            "onetbb::onetbb",
             "coretoolkit::coretoolkit",
             "nlohmann_json::nlohmann_json",
             "spdlog::spdlog",
