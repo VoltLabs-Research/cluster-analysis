@@ -2,6 +2,12 @@
 
 `ClusterAnalysis` groups atoms into geometric clusters using a cutoff neighbor graph.
 
+## One-Command Install
+
+```bash
+curl -sSL https://raw.githubusercontent.com/VoltLabs-Research/CoreToolkit/main/scripts/install-plugin.sh | bash -s -- ClusterAnalysis
+```
+
 ## CLI
 
 Usage:
@@ -23,13 +29,3 @@ cluster-analysis <lammps_file> [output_base] [options]
 | `--radiusOfGyration` | No | Compute radii and tensors of gyration. | `false` |
 | `--threads <int>` | No | Maximum worker threads. | auto |
 | `--help` | No | Print CLI help. | |
-
-## Build With CoreToolkit
-
-```bash
-cd /path/to/voltlabs-ecosystem/tools/CoreToolkit
-conan create . -nr
-
-cd /path/to/voltlabs-ecosystem/plugins/ClusterAnalysis
-conan create . -nr
-```
