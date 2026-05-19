@@ -9,12 +9,9 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  packages: write
+  contents: write
 
 jobs:
   publish:
     uses: VoltLabs-Research/CoreToolkit/.github/workflows/build-plugin-binary.yml@main
-    with:
-      plugin_name: ${{ github.event.repository.name }}
     secrets: inherit
