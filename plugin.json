@@ -1,0 +1,215 @@
+{
+  "workflow": {
+    "nodes": [
+      {
+        "id": "plugin-metadata",
+        "type": "modifier",
+        "position": {
+          "x": 240,
+          "y": 160
+        },
+        "data": {
+          "modifier": {
+            "name": "Cluster Analysis",
+            "key": "cluster-analysis",
+            "icon": "HiCube",
+            "author": "Rodolfo Herrera",
+            "license": "MIT",
+            "version": "1.0.0",
+            "homepage": "https://github.com/rodyherrera/Volterra",
+            "description": "Agrupa atomos en clusters por distancia (cutoff) y opcionalmente calcula centros de masa y radio de giro."
+          }
+        }
+      },
+      {
+        "id": "plugin-arguments",
+        "type": "arguments",
+        "position": {
+          "x": 528,
+          "y": 208
+        },
+        "data": {
+          "arguments": {
+            "arguments": [
+              {
+                "argument": "cutoff",
+                "type": "number",
+                "label": "Cutoff",
+                "default": 3.2,
+                "min": 0,
+                "step": 0.1
+              },
+              {
+                "argument": "sortBySize",
+                "type": "boolean",
+                "label": "Sort By Size",
+                "default": true
+              },
+              {
+                "argument": "unwrap",
+                "type": "boolean",
+                "label": "Unwrap",
+                "default": false
+              },
+              {
+                "argument": "centersOfMass",
+                "type": "boolean",
+                "label": "Centers Of Mass",
+                "default": false
+              },
+              {
+                "argument": "radiusOfGyration",
+                "type": "boolean",
+                "label": "Radius Of Gyration",
+                "default": false
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "trajectory-context",
+        "type": "context",
+        "position": {
+          "x": 816,
+          "y": 160
+        },
+        "data": {
+          "context": {
+            "source": "trajectory_dumps"
+          }
+        }
+      },
+      {
+        "id": "foreach-trajectory-dumps",
+        "type": "forEach",
+        "position": {
+          "x": 1088,
+          "y": 208
+        },
+        "data": {
+          "forEach": {
+            "iterableSource": "{{ trajectory-context.trajectory_dumps }}"
+          }
+        }
+      },
+      {
+        "id": "analysis-entrypoint",
+        "type": "entrypoint",
+        "position": {
+          "x": 1392,
+          "y": 208
+        },
+        "data": {
+          "entrypoint": {
+            "type": "python-script",
+            "binary": "cluster-analysis-plugin.zip",
+            "binaryObjectPath": "__UPLOAD_BINARY_OBJECT_PATH__",
+            "binaryFileName": "cluster-analysis-plugin.zip",
+            "entrypointScript": "scripts/cluster_analysis_plugin_wrapper.py",
+            "requirementsFile": "",
+            "arguments": "{{ foreach-trajectory-dumps.currentValue.path }} {{ foreach-trajectory-dumps.outputPath }} {{ plugin-arguments.as_str }}",
+            "timeout": -1
+          }
+        }
+      },
+      {
+        "id": "primary-exposure",
+        "type": "exposure",
+        "position": {
+          "x": 1712,
+          "y": 208
+        },
+        "data": {
+          "exposure": {
+            "name": "Cluster Analysis",
+            "icon": "HiCube",
+            "results": "cluster_analysis.msgpack",
+            "iterable": ""
+          }
+        }
+      },
+      {
+        "id": "cluster-model-exposure",
+        "type": "exposure",
+        "position": {
+          "x": 1712,
+          "y": 336
+        },
+        "data": {
+          "exposure": {
+            "name": "Cluster Model",
+            "icon": "HiCube",
+            "results": "atoms.msgpack",
+            "iterable": ""
+          }
+        }
+      },
+      {
+        "id": "cluster-model-export",
+        "type": "export",
+        "position": {
+          "x": 2032,
+          "y": 336
+        },
+        "data": {
+          "export": {
+            "exporter": "AtomisticExporter",
+            "type": "glb"
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "edge-metadata-arguments",
+        "source": "plugin-metadata",
+        "sourceHandle": "output",
+        "target": "plugin-arguments",
+        "targetHandle": "input"
+      },
+      {
+        "id": "edge-arguments-context",
+        "source": "plugin-arguments",
+        "sourceHandle": "output",
+        "target": "trajectory-context",
+        "targetHandle": "input"
+      },
+      {
+        "id": "edge-context-foreach",
+        "source": "trajectory-context",
+        "sourceHandle": "output",
+        "target": "foreach-trajectory-dumps",
+        "targetHandle": "input"
+      },
+      {
+        "id": "edge-foreach-entrypoint",
+        "source": "foreach-trajectory-dumps",
+        "sourceHandle": "output",
+        "target": "analysis-entrypoint",
+        "targetHandle": "input"
+      },
+      {
+        "id": "edge-entrypoint-exposure",
+        "source": "analysis-entrypoint",
+        "sourceHandle": "output",
+        "target": "primary-exposure",
+        "targetHandle": "input"
+      },
+      {
+        "id": "edge-entrypoint-cluster-model-exposure",
+        "source": "analysis-entrypoint",
+        "sourceHandle": "output",
+        "target": "cluster-model-exposure",
+        "targetHandle": "input"
+      },
+      {
+        "id": "edge-cluster-model-exposure-cluster-model-export",
+        "source": "cluster-model-exposure",
+        "sourceHandle": "output",
+        "target": "cluster-model-export",
+        "targetHandle": "input"
+      }
+    ]
+  }
+}

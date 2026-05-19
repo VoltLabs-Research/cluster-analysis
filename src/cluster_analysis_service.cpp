@@ -3,6 +3,8 @@
 #include <volt/core/analysis_result.h>
 #include <volt/utilities/json_utils.h>
 #include <spdlog/spdlog.h>
+#include <map>
+#include <string>
 
 namespace Volt{
 
@@ -122,6 +124,57 @@ json ClusterAnalysisService::compute(const LammpsParser::Frame& frame, const std
             spdlog::info("Cluster analysis msgpack written to {}", outputPath);
         }else{
             spdlog::warn("Could not write cluster analysis msgpack: {}", outputPath);
+        }
+
+        // --- atoms.msgpack (AtomisticExporter) ---
+        // Canonical per-atom envelope grouped by cluster id so the viewport
+        // can colour clusters independently. OVITO's ClusterAnalysisModifier
+        // publishes a `ClusterProperty` plus unwrapped positions; we expose
+        // both here.
+        json atomsByCluster;
+        std::map<int, int> clusterCounts;
+        for(int i = 0; i < frame.natoms; i++){
+            const Point3& pos = frame.positions[i];
+            const int clusterId = clusters ? clusters->getInt(i) : 0;
+            const std::string bucket = clusterId > 0
+                ? "Cluster_" + std::to_string(clusterId)
+                : std::string("Unclustered");
+            clusterCounts[clusterId]++;
+            json atom = {
+                {"id", frame.ids[i]},
+                {"pos", {pos.x(), pos.y(), pos.z()}},
+                {"structure_id", clusterId},
+                {"structure_name", bucket},
+                {"cluster_id", clusterId}
+            };
+            if(unwrapped){
+                const Point3 pu = unwrapped->getPoint3(i);
+                atom["pos_unwrapped"] = {pu.x(), pu.y(), pu.z()};
+            }
+            atomsByCluster[bucket].push_back(std::move(atom));
+        }
+        json structuresListing = json::array();
+        for(const auto& [clusterId, count] : clusterCounts){
+            const std::string name = clusterId > 0
+                ? "Cluster_" + std::to_string(clusterId)
+                : std::string("Unclustered");
+            structuresListing.push_back({
+                {"structure_id", clusterId}, {"structure_name", name}, {"atom_count", count}
+            });
+        }
+        json exportWrapper;
+        exportWrapper["main_listing"] = {
+            {"total_atoms", frame.natoms},
+            {"structure_count", static_cast<int>(clusterCounts.size())}
+        };
+        exportWrapper["sub_listings"] = { {"structures", structuresListing} };
+        exportWrapper["export"] = json::object();
+        exportWrapper["export"]["AtomisticExporter"] = atomsByCluster;
+        const std::string atomsPath = outputFilename + "_atoms.msgpack";
+        if(JsonUtils::writeJsonMsgpackToFile(exportWrapper, atomsPath, false)){
+            spdlog::info("Exported atoms data to: {}", atomsPath);
+        }else{
+            spdlog::warn("Could not write atoms msgpack: {}", atomsPath);
         }
     }
 

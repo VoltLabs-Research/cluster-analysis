@@ -91,7 +91,6 @@ private:
 
     ClusterAnalysis::NeighborMode _neighborMode;
     double _cutoff;
-    bool _onlySelectedParticles;
     bool _sortBySize;
     bool _unwrapParticleCoordinates;
     bool _computeCentersOfMass;
