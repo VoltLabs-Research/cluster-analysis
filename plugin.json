@@ -40,7 +40,7 @@
                 "step": 0.1
               },
               {
-                "argument": "sortBySize",
+                "argument": "sort_by_size",
                 "type": "boolean",
                 "label": "Sort By Size",
                 "default": true
@@ -52,13 +52,13 @@
                 "default": false
               },
               {
-                "argument": "centersOfMass",
+                "argument": "centers_of_mass",
                 "type": "boolean",
                 "label": "Centers Of Mass",
                 "default": false
               },
               {
-                "argument": "radiusOfGyration",
+                "argument": "radius_of_gyration",
                 "type": "boolean",
                 "label": "Radius Of Gyration",
                 "default": false

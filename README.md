@@ -63,9 +63,9 @@ cluster-analysis <lammps_file> [output_base] [options]
 | `<lammps_file>` | Yes | Input LAMMPS dump file. | |
 | `[output_base]` | No | Base path for output files. | derived from input |
 | `--cutoff <float>` | No | Cutoff radius for neighbor search. | `3.2` |
-| `--sortBySize` | No | Sort clusters by descending size. | `true` |
+| `--sort_by_size` | No | Sort clusters by descending size. | `true` |
 | `--unwrap` | No | Unwrap coordinates inside each cluster. | `false` |
-| `--centersOfMass` | No | Compute cluster centers of mass. | `false` |
-| `--radiusOfGyration` | No | Compute radii and tensors of gyration. | `false` |
+| `--centers_of_mass` | No | Compute cluster centers of mass. | `false` |
+| `--radius_of_gyration` | No | Compute radii and tensors of gyration. | `false` |
 | `--threads <int>` | No | Maximum worker threads. | auto |
 | `--help` | No | Print CLI help. | |
