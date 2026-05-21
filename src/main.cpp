@@ -9,10 +9,10 @@ void showUsage(const std::string& name) {
     printUsageHeader(name, "Volt - Cluster Analysis");
     std::cerr
         << "  --cutoff <float>              Cutoff radius for neighbor search. [default: 3.2]\n"
-        << "  --sortBySize                  Sort clusters by size (desc). [default: true]\n"
+        << "  --sort_by_size                  Sort clusters by size (desc). [default: true]\n"
         << "  --unwrap                      Unwrap particle coordinates inside clusters. [default: false]\n"
-        << "  --centersOfMass               Compute cluster centers (uniform weights). [default: false]\n"
-        << "  --radiusOfGyration            Compute radii + tensors of gyration (uniform weights). [default: false]\n"
+        << "  --centers_of_mass               Compute cluster centers (uniform weights). [default: false]\n"
+        << "  --radius_of_gyration            Compute radii + tensors of gyration (uniform weights). [default: false]\n"
         << "  --threads <int>               Max worker threads (TBB/OMP). [default: auto]\n";
     printHelpOption();
 }
@@ -51,10 +51,10 @@ int main(int argc, char* argv[]) {
     analyzer.setCutoff(getDouble(opts, "--cutoff", 3.2));
 
     analyzer.setOptions(
-        getBool(opts, "--sortBySize", true),
+        getBool(opts, "--sort_by_size", true),
         getBool(opts, "--unwrap", false),
-        getBool(opts, "--centersOfMass", false),
-        getBool(opts, "--radiusOfGyration", false)
+        getBool(opts, "--centers_of_mass", false),
+        getBool(opts, "--radius_of_gyration", false)
     );
 
     spdlog::info("Starting cluster analysis...");
