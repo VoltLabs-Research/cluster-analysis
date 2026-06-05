@@ -2,7 +2,9 @@
 #include <volt/core/frame_adapter.h>
 #include <volt/core/analysis_result.h>
 #include <volt/utilities/json_utils.h>
+#include <volt/utilities/msgpack_atom_writer.h>
 #include <spdlog/spdlog.h>
+
 #include <map>
 #include <string>
 
@@ -34,8 +36,6 @@ void ClusterAnalysisService::setOptions(
 }
 
 json ClusterAnalysisService::compute(const LammpsParser::Frame& frame, const std::string& outputFilename){
-    auto startTime = std::chrono::high_resolution_clock::now();
-
     if(frame.natoms <= 0)
         return AnalysisResult::failure("Invalid number of atoms");
 
@@ -62,12 +62,29 @@ json ClusterAnalysisService::compute(const LammpsParser::Frame& frame, const std
     auto clusters = engine.particleClusters();
     auto unwrapped = engine.unwrappedPositions();
     auto clusterSizes = engine.clusterSizes();
-    auto clusterIds = engine.clusterIDs();
     auto centers = engine.centersOfMass();
     auto rg = engine.radiiOfGyration();
     auto gt = engine.gyrationTensors();
 
     const size_t k = engine.numClusters();
+
+    json clusterList = json::array();
+    for(size_t ci = 0; ci < k; ci++){
+        json c;
+        c["cluster_id"] = static_cast<int64_t>(ci + 1);
+        c["size"] = clusterSizes ? clusterSizes->getInt64(ci) : 0;
+        if(centers){
+            const Point3 p = centers->getPoint3(ci);
+            c["center"] = {p.x(), p.y(), p.z()};
+        }
+        if(rg) c["radius_of_gyration"] = rg->getDouble(ci);
+        if(gt){
+            json tensor = json::array();
+            for(int comp = 0; comp < 6; comp++) tensor.push_back(gt->getDoubleComponent(ci, comp));
+            c["gyration_tensor"] = tensor;
+        }
+        clusterList.push_back(c);
+    }
 
     json result;
     result["main_listing"] = {
@@ -76,47 +93,7 @@ json ClusterAnalysisService::compute(const LammpsParser::Frame& frame, const std
         { "largest_cluster_size", engine.largestClusterSize() },
         { "has_zero_weight_cluster", engine.hasZeroWeightCluster() }
     };
-
-    // sub_listings: cluster_list
-    json clusterList = json::array();
-    for(size_t ci = 0; ci < k; ci++){
-        json c;
-        c["cluster_id"] = static_cast<int64_t>(ci + 1);
-        c["size"] = clusterSizes ? clusterSizes->getInt64(ci) : 0;
-
-        if(centers){
-            const Point3 p = centers->getPoint3(ci);
-            c["center"] = {p.x(), p.y(), p.z()};
-        }
-
-        if(rg)  c["radius_of_gyration"] = rg->getDouble(ci);
-
-        if(gt){
-            json tensor = json::array();
-            for(int comp = 0; comp < 6; comp++) tensor.push_back(gt->getDoubleComponent(ci, comp));
-            c["gyration_tensor"] = tensor;
-        }
-
-        clusterList.push_back(c);
-    }
-
     result["sub_listings"] = { { "clusters", clusterList } };
-
-    // per-atom-properties
-    json perAtom = json::array();
-    for(int i = 0; i < frame.natoms; i++){
-        json a;
-        a["id"] = frame.ids[i];
-        a["cluster"] = clusters ? clusters->getInt(i) : 0;
-
-        if(unwrapped){
-            const Point3 p = unwrapped->getPoint3(i);
-            a["pos_unwrapped"] = {p.x(), p.y(), p.z()};
-        }
-
-        perAtom.push_back(a);
-    }
-    result["per-atom-properties"] = perAtom;
 
     if(!outputFilename.empty()){
         const std::string outputPath = outputFilename + "_cluster_analysis.msgpack";
@@ -126,56 +103,25 @@ json ClusterAnalysisService::compute(const LammpsParser::Frame& frame, const std
             spdlog::warn("Could not write cluster analysis msgpack: {}", outputPath);
         }
 
-        // --- atoms.msgpack (AtomisticExporter) ---
-        // Canonical per-atom envelope grouped by cluster id so the viewport
-        // can colour clusters independently. OVITO's ClusterAnalysisModifier
-        // publishes a `ClusterProperty` plus unwrapped positions; we expose
-        // both here.
-        json atomsByCluster;
-        std::map<int, int> clusterCounts;
-        for(int i = 0; i < frame.natoms; i++){
-            const Point3& pos = frame.positions[i];
-            const int clusterId = clusters ? clusters->getInt(i) : 0;
-            const std::string bucket = clusterId > 0
-                ? "Cluster_" + std::to_string(clusterId)
-                : std::string("Unclustered");
-            clusterCounts[clusterId]++;
-            json atom = {
-                {"id", frame.ids[i]},
-                {"pos", {pos.x(), pos.y(), pos.z()}},
-                {"structure_id", clusterId},
-                {"structure_name", bucket},
-                {"cluster_id", clusterId}
-            };
+        // _atoms.msgpack: streaming, no DOM
+        auto fieldWriter = [&](MsgpackWriter& w, std::size_t i, int& count){
+            count = unwrapped ? 1 : 0;
             if(unwrapped){
+                w.write_key("pos_unwrapped"); w.write_array_header(3);
                 const Point3 pu = unwrapped->getPoint3(i);
-                atom["pos_unwrapped"] = {pu.x(), pu.y(), pu.z()};
+                w.write_double(pu.x()); w.write_double(pu.y()); w.write_double(pu.z());
             }
-            atomsByCluster[bucket].push_back(std::move(atom));
-        }
-        json structuresListing = json::array();
-        for(const auto& [clusterId, count] : clusterCounts){
-            const std::string name = clusterId > 0
-                ? "Cluster_" + std::to_string(clusterId)
-                : std::string("Unclustered");
-            structuresListing.push_back({
-                {"structure_id", clusterId}, {"structure_name", name}, {"atom_count", count}
-            });
-        }
-        json exportWrapper;
-        exportWrapper["main_listing"] = {
-            {"total_atoms", frame.natoms},
-            {"structure_count", static_cast<int>(clusterCounts.size())}
         };
-        exportWrapper["sub_listings"] = { {"structures", structuresListing} };
-        exportWrapper["export"] = json::object();
-        exportWrapper["export"]["AtomisticExporter"] = atomsByCluster;
+
         const std::string atomsPath = outputFilename + "_atoms.msgpack";
-        if(JsonUtils::writeJsonMsgpackToFile(exportWrapper, atomsPath, false)){
-            spdlog::info("Exported atoms data to: {}", atomsPath);
-        }else{
-            spdlog::warn("Could not write atoms msgpack: {}", atomsPath);
-        }
+        streamAtomsToFile(atomsPath, frame,
+            [&](std::size_t i){
+                const int cid = clusters ? clusters->getInt(i) : 0;
+                return cid > 0 ? "Cluster_" + std::to_string(cid) : std::string("Unclustered");
+            },
+            fieldWriter
+        );
+        spdlog::info("Exported atoms data to: {}", atomsPath);
     }
 
     spdlog::info("Cluster analysis completed. Clusters: {}, largest: {}", k, engine.largestClusterSize());
