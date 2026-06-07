@@ -1,0 +1,29 @@
+{
+  "name": "@voltlabs/cluster-analysis",
+  "version": "1.0.1",
+  "kind": "workflow",
+  "publisher": "voltlabs",
+  "description": "Groups atoms into clusters using a distance cutoff and optionally computes the center of mass and radius of gyration.",
+  "license": "MIT",
+  "homepage": "https://github.com/voltlabs-research/cluster-analysis",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/voltlabs-research/cluster-analysis"
+  },
+  "entrypoints": {
+    "binary": "cluster-analysis-plugin.zip",
+    "workflow": "plugin.json"
+  },
+  "platforms": [
+    "linux-x86_64",
+    "darwin-arm64",
+    "windows-x86_64"
+  ],
+  "coretoolkit": "1.0.0",
+  "files": [
+    "plugin.json",
+    "scripts",
+    "bin",
+    "lib"
+  ]
+}
