@@ -7,9 +7,42 @@
 #include <cmath>
 #include <limits>
 
+#include <tbb/parallel_for.h>
+#include <tbb/blocked_range.h>
+
 namespace Volt{
 
 using namespace Volt::Particles;
+
+namespace{
+// Lock-free union-find. Linking always points the higher index at the lower
+// one, so every component's root is its minimum atom index. Numbering clusters
+// by ascending root index then reproduces the seed order of the original serial
+// BFS (which seeded clusters at the first unassigned atom). find() is read-only
+// (parents only ever decrease), so concurrent unite()s are linearizable.
+struct ConcurrentDisjointSet{
+    std::vector<std::atomic<uint32_t>> parent;
+    explicit ConcurrentDisjointSet(size_t n) : parent(n){
+        for(size_t i = 0; i < n; i++) parent[i].store((uint32_t)i, std::memory_order_relaxed);
+    }
+    uint32_t find(uint32_t x) const{
+        while(true){
+            uint32_t p = parent[x].load(std::memory_order_acquire);
+            if(p == x) return x;
+            x = p;
+        }
+    }
+    void unite(uint32_t a, uint32_t b){
+        for(;;){
+            a = find(a); b = find(b);
+            if(a == b) return;
+            uint32_t hi = a > b ? a : b, lo = a > b ? b : a;
+            uint32_t expected = hi;
+            if(parent[hi].compare_exchange_strong(expected, lo, std::memory_order_acq_rel)) return;
+        }
+    }
+};
+}
 
 ClusterAnalysisEngine::ClusterAnalysisEngine(
     ParticleProperty* positions,
@@ -117,6 +150,35 @@ void ClusterAnalysisEngine::doClusteringCutoff(std::vector<Point3>& centerOfMass
 
     const Point3* pos = _positions->constDataPoint3();
     Point3* uw = _unwrappedPositions ? _unwrappedPositions->dataPoint3() : nullptr;
+
+    // Fast path: no unwrap / centers-of-mass / gyration requested, so only the
+    // connected-component partition is needed. Run a lock-free parallel
+    // union-find over the neighbor graph instead of the serial BFS. Cluster ids
+    // are assigned by ascending minimum atom index (= union-find root), which
+    // matches the serial BFS seed order, so the labeling is identical (pre-sort).
+    if(!uw){
+        ConcurrentDisjointSet uf(n);
+        tbb::parallel_for(tbb::blocked_range<size_t>(0, n), [&](const tbb::blocked_range<size_t>& r){
+            for(size_t i = r.begin(); i < r.end(); ++i){
+                for(CutoffNeighborFinder::Query q(neighFinder, i); !q.atEnd(); q.next()){
+                    const size_t nb = q.current();
+                    if(nb < n) uf.unite((uint32_t)i, (uint32_t)nb);
+                }
+            }
+        });
+
+        _numClusters = 0;
+        for(size_t i = 0; i < n; i++){
+            if(uf.find((uint32_t)i) == (uint32_t)i){
+                _numClusters++;
+                _particleClusters->setInt(i, (int)_numClusters);
+            }
+        }
+        for(size_t i = 0; i < n; i++){
+            _particleClusters->setInt(i, _particleClusters->getInt((size_t)uf.find((uint32_t)i)));
+        }
+        return;
+    }
 
     std::deque<size_t> queue;
     for(size_t seed = 0; seed < n; seed++){
