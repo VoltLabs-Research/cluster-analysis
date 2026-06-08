@@ -15,7 +15,7 @@
             "icon": "HiCube",
             "author": "Rodolfo Herrera",
             "license": "MIT",
-            "version": "1.0.1",
+            "version": "1.0.2",
             "homepage": "https://github.com/rodyherrera/Volterra",
             "description": "Agrupa atomos en clusters por distancia (cutoff) y opcionalmente calcula centros de masa y radio de giro."
           }
