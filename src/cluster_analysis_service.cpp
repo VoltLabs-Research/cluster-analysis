@@ -119,7 +119,12 @@ json ClusterAnalysisService::compute(const LammpsParser::Frame& frame, const std
                 const int cid = clusters ? clusters->getInt(i) : 0;
                 return cid > 0 ? "Cluster_" + std::to_string(cid) : std::string("Unclustered");
             },
-            fieldWriter
+            fieldWriter,
+            [&](MsgpackWriter& w, std::size_t i, int& count){
+                count = 1;
+                w.write_key("cluster_id");
+                w.write_int(clusters ? clusters->getInt(i) : 0);
+            }
         );
         spdlog::info("Exported atoms data to: {}", atomsPath);
     }
