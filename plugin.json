@@ -122,7 +122,7 @@
           "exposure": {
             "name": "Cluster Analysis",
             "icon": "HiCube",
-            "results": "cluster_analysis.msgpack",
+            "results": "cluster_analysis.parquet",
             "iterable": ""
           }
         }
@@ -138,7 +138,7 @@
           "exposure": {
             "name": "Cluster Model",
             "icon": "HiCube",
-            "results": "atoms.msgpack",
+            "results": "atoms.parquet",
             "iterable": ""
           }
         }

@@ -2,7 +2,7 @@
 #include <volt/core/frame_adapter.h>
 #include <volt/core/analysis_result.h>
 #include <volt/utilities/json_utils.h>
-#include <volt/utilities/msgpack_atom_writer.h>
+#include <volt/utilities/parquet_atom_writer.h>
 #include <spdlog/spdlog.h>
 
 #include <map>
@@ -96,34 +96,26 @@ json ClusterAnalysisService::compute(const LammpsParser::Frame& frame, const std
     result["sub_listings"] = { { "clusters", clusterList } };
 
     if(!outputFilename.empty()){
-        const std::string outputPath = outputFilename + "_cluster_analysis.msgpack";
-        if(JsonUtils::writeJsonMsgpackToFile(result, outputPath, false)){
-            spdlog::info("Cluster analysis msgpack written to {}", outputPath);
+        const std::string outputPath = outputFilename + "_cluster_analysis.parquet";
+        if(JsonUtils::writeJsonToParquet(result, outputPath, false)){
+            spdlog::info("Cluster analysis parquet written to {}", outputPath);
         }else{
-            spdlog::warn("Could not write cluster analysis msgpack: {}", outputPath);
+            spdlog::warn("Could not write cluster analysis parquet: {}", outputPath);
         }
 
-        // _atoms.msgpack: streaming, no DOM
-        auto fieldWriter = [&](MsgpackWriter& w, std::size_t i, int& count){
-            count = unwrapped ? 1 : 0;
-            if(unwrapped){
-                w.write_key("pos_unwrapped"); w.write_array_header(3);
-                const Point3 pu = unwrapped->getPoint3(i);
-                w.write_double(pu.x()); w.write_double(pu.y()); w.write_double(pu.z());
-            }
-        };
-
-        const std::string atomsPath = outputFilename + "_atoms.msgpack";
-        streamAtomsToFile(atomsPath, frame,
+        // _atoms.parquet: streaming columnar
+        const std::string atomsPath = outputFilename + "_atoms.parquet";
+        streamAtomsToParquet(atomsPath, frame,
             [&](std::size_t i){
                 const int cid = clusters ? clusters->getInt(i) : 0;
                 return cid > 0 ? "Cluster_" + std::to_string(cid) : std::string("Unclustered");
             },
-            fieldWriter,
-            [&](MsgpackWriter& w, std::size_t i, int& count){
-                count = 1;
-                w.write_key("cluster_id");
-                w.write_int(clusters ? clusters->getInt(i) : 0);
+            [&](ColumnarAtomWriter& w, std::size_t i){
+                if(unwrapped){
+                    const Point3 pu = unwrapped->getPoint3(i);
+                    w.field("pos_unwrapped", std::vector<double>{pu.x(), pu.y(), pu.z()});
+                }
+                w.field("cluster_id", clusters ? clusters->getInt(i) : 0);
             }
         );
         spdlog::info("Exported atoms data to: {}", atomsPath);

@@ -14,7 +14,7 @@ from pathlib import Path
 BINARY_NAME = "cluster-analysis"
 PLUGIN_REPO_DIRNAME = "ClusterAnalysis"
 ENV_BINARY_OVERRIDE = "VOLT_CLUSTER_ANALYSIS_BINARY"
-REQUIRED_OUTPUTS = ["_cluster_analysis.msgpack", "_atoms.msgpack"]
+REQUIRED_OUTPUTS = ["_cluster_analysis.parquet", "_atoms.parquet"]
 LOG_TAG = "cluster-analysis-plugin"
 
 SCRIPT_DIR = Path(__file__).resolve().parent
