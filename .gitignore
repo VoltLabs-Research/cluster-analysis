@@ -6,6 +6,7 @@ cmake-build-*/
 dist/
 artifacts/
 .ci-install/
+CLAUDE.md
 
 # CMake / Ninja artifacts
 CMakeFiles/
