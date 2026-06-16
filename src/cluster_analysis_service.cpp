@@ -116,7 +116,12 @@ json ClusterAnalysisService::compute(const LammpsParser::Frame& frame, const std
                     w.field("pos_unwrapped", std::vector<double>{pu.x(), pu.y(), pu.z()});
                 }
                 w.field("cluster_id", clusters ? clusters->getInt(i) : 0);
-            }
+            },
+            // No StructureIdResolver, and omit structure_id/structure_name: this
+            // plugin's buckets are clusters, not crystal structures — it exports
+            // only cluster_id, so those columns must not leak into the catalog.
+            {},
+            false
         );
         spdlog::info("Exported atoms data to: {}", atomsPath);
     }
