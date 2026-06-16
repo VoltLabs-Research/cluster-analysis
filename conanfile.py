@@ -4,7 +4,7 @@ from conan.tools.cmake import CMake, CMakeToolchain, CMakeDeps, cmake_layout
 
 class ClusterAnalysisConan(ConanFile):
     name = "cluster-analysis"
-    version = "2.0.0"
+    version = "2.0.1"
     package_type = "static-library"
     license = "MIT"
     settings = "os", "arch", "compiler", "build_type"
