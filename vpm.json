@@ -1,6 +1,6 @@
 {
   "name": "@voltlabs/cluster-analysis",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "kind": "workflow",
   "publisher": "voltlabs",
   "description": "Groups atoms into clusters using a distance cutoff and optionally computes the center of mass and radius of gyration.",
