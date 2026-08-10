@@ -1,34 +1,40 @@
 #include <volt/cli/common.h>
 #include <volt/cluster_analysis_service.h>
+#include <volt/plugin/option_reader.h>
 #include <oneapi/tbb/global_control.h>
 
 using namespace Volt;
 using namespace Volt::CLI;
+using namespace Volt::Plugin;
 
-void showUsage(const std::string& name) {
-    printUsageHeader(name, "Volt - Cluster Analysis");
-    std::cerr
-        << "  --cutoff <float>              Cutoff radius for neighbor search. [default: 3.2]\n"
-        << "  --sort_by_size                  Sort clusters by size (desc). [default: true]\n"
-        << "  --unwrap                      Unwrap particle coordinates inside clusters. [default: false]\n"
-        << "  --centers_of_mass               Compute cluster centers (uniform weights). [default: false]\n"
-        << "  --radius_of_gyration            Compute radii + tensors of gyration (uniform weights). [default: false]\n"
-        << "  --threads <int>               Max worker threads (TBB/OMP). [default: auto]\n";
-    printHelpOption();
+static PluginDescriptor buildDescriptor() {
+    return {
+        "volt-cluster-analysis",
+        "Cluster Analysis",
+        {
+            {"--cutoff", "float", "Cutoff radius for neighbor search.", "3.2", {}, ""},
+            {"--sort_by_size", "bool", "Sort clusters by size (desc).", "true", {}, ""},
+            {"--unwrap", "bool", "Unwrap particle coordinates inside clusters.", "false", {}, ""},
+            {"--centers_of_mass", "bool", "Compute cluster centers (uniform weights).", "false", {}, ""},
+            {"--radius_of_gyration", "bool",
+             "Compute radii + tensors of gyration (uniform weights).", "false", {}, ""},
+        }
+    };
 }
 
 int main(int argc, char* argv[]) {
+    const PluginDescriptor descriptor = buildDescriptor();
+
     if (argc < 2) {
-        showUsage(argv[0]);
+        showPluginUsage(argv[0], descriptor);
         return 1;
     }
 
     std::string filename, outputBase;
     auto opts = parseArgs(argc, argv, filename, outputBase);
 
-    if (hasOption(opts, "--help") || filename.empty()) {
-        showUsage(argv[0]);
-        return filename.empty() ? 1 : 0;
+    if (auto exitCode = handleIntrospection(argv[0], descriptor, opts, filename)) {
+        return *exitCode;
     }
 
     const int requestedThreads = std::max(1, getInt(opts, "--threads", std::thread::hardware_concurrency() > 0
@@ -47,14 +53,16 @@ int main(int argc, char* argv[]) {
     outputBase = deriveOutputBase(filename, outputBase);
     spdlog::info("Output base: {}", outputBase);
 
+    const OptionReader options(descriptor, opts);
+
     ClusterAnalysisService analyzer;
-    analyzer.setCutoff(getDouble(opts, "--cutoff", 3.2));
+    analyzer.setCutoff(options.number("--cutoff"));
 
     analyzer.setOptions(
-        getBool(opts, "--sort_by_size", true),
-        getBool(opts, "--unwrap", false),
-        getBool(opts, "--centers_of_mass", false),
-        getBool(opts, "--radius_of_gyration", false)
+        options.boolean("--sort_by_size"),
+        options.boolean("--unwrap"),
+        options.boolean("--centers_of_mass"),
+        options.boolean("--radius_of_gyration")
     );
 
     spdlog::info("Starting cluster analysis...");

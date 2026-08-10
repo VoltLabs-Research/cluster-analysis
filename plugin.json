@@ -22,52 +22,6 @@
         }
       },
       {
-        "id": "plugin-arguments",
-        "type": "arguments",
-        "position": {
-          "x": 528,
-          "y": 208
-        },
-        "data": {
-          "arguments": {
-            "arguments": [
-              {
-                "argument": "cutoff",
-                "type": "number",
-                "label": "Cutoff",
-                "default": 3.2,
-                "min": 0,
-                "step": 0.1
-              },
-              {
-                "argument": "sort_by_size",
-                "type": "boolean",
-                "label": "Sort By Size",
-                "default": true
-              },
-              {
-                "argument": "unwrap",
-                "type": "boolean",
-                "label": "Unwrap",
-                "default": false
-              },
-              {
-                "argument": "centers_of_mass",
-                "type": "boolean",
-                "label": "Centers Of Mass",
-                "default": false
-              },
-              {
-                "argument": "radius_of_gyration",
-                "type": "boolean",
-                "label": "Radius Of Gyration",
-                "default": false
-              }
-            ]
-          }
-        }
-      },
-      {
         "id": "trajectory-context",
         "type": "context",
         "position": {
@@ -106,7 +60,7 @@
             "binary": "cluster-analysis",
             "binaryObjectPath": "__UPLOAD_BINARY_OBJECT_PATH__",
             "binaryFileName": "cluster-analysis",
-            "arguments": "{{ foreach-trajectory-dumps.currentValue.path }} {{ foreach-trajectory-dumps.outputPath }} {{ plugin-arguments.as_str }}",
+            "arguments": "{{ foreach-trajectory-dumps.currentValue.path }} {{ foreach-trajectory-dumps.outputPath }}",
             "timeout": -1
           }
         }
@@ -160,20 +114,6 @@
     ],
     "edges": [
       {
-        "id": "edge-metadata-arguments",
-        "source": "plugin-metadata",
-        "sourceHandle": "output",
-        "target": "plugin-arguments",
-        "targetHandle": "input"
-      },
-      {
-        "id": "edge-arguments-context",
-        "source": "plugin-arguments",
-        "sourceHandle": "output",
-        "target": "trajectory-context",
-        "targetHandle": "input"
-      },
-      {
         "id": "edge-context-foreach",
         "source": "trajectory-context",
         "sourceHandle": "output",
@@ -207,7 +147,22 @@
         "sourceHandle": "output",
         "target": "cluster-model-export",
         "targetHandle": "input"
+      },
+      {
+        "id": "edge-plugin-metadata-trajectory-context",
+        "source": "plugin-metadata",
+        "sourceHandle": "output",
+        "target": "trajectory-context",
+        "targetHandle": "input"
       }
     ]
+  },
+  "interface": {
+    "version": 2,
+    "provides": {
+      "volt/per-atom-properties@1": {
+        "atoms": "atoms.parquet"
+      }
+    }
   }
 }
