@@ -103,7 +103,6 @@ json ClusterAnalysisService::compute(const LammpsParser::Frame& frame, const std
             spdlog::warn("Could not write cluster analysis parquet: {}", outputPath);
         }
 
-        // _atoms.parquet: streaming columnar
         const std::string atomsPath = outputFilename + "_atoms.parquet";
         streamAtomsToParquet(atomsPath, frame,
             [&](std::size_t i){
@@ -117,9 +116,6 @@ json ClusterAnalysisService::compute(const LammpsParser::Frame& frame, const std
                 }
                 w.field("cluster_id", clusters ? clusters->getInt(i) : 0);
             },
-            // No StructureIdResolver, and omit structure_id/structure_name: this
-            // plugin's buckets are clusters, not crystal structures — it exports
-            // only cluster_id, so those columns must not leak into the catalog.
             {},
             false
         );

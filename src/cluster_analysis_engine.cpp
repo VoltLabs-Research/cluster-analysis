@@ -15,11 +15,6 @@ namespace Volt{
 using namespace Volt::Particles;
 
 namespace{
-// Lock-free union-find. Linking always points the higher index at the lower
-// one, so every component's root is its minimum atom index. Numbering clusters
-// by ascending root index then reproduces the seed order of the original serial
-// BFS (which seeded clusters at the first unassigned atom). find() is read-only
-// (parents only ever decrease), so concurrent unite()s are linearizable.
 struct ConcurrentDisjointSet{
     std::vector<std::atomic<uint32_t>> parent;
     explicit ConcurrentDisjointSet(size_t n) : parent(n){
@@ -91,19 +86,15 @@ void ClusterAnalysisEngine::perform(){
         return;
     }
 
-    // per-particle cluster id (int).
     _particleClusters = std::make_shared<ParticleProperty>(n, ParticleProperty::ClusterProperty, 1, true);
 
-    // -1 for "unassigned", 0 for "excluded"
     for(size_t i = 0; i < n; i++){
         _particleClusters->setInt(i, -1);
     }
 
-    // Unwrapped positions output
     if(_unwrapParticleCoordinates || _computeCentersOfMass || _computeRadiusOfGyration){
         _unwrappedPositions = std::make_shared<ParticleProperty>(n, ParticleProperty::PositionProperty, 3, true);
 
-        // Initialize with wrapped/current positions
         const Point3* pos = _positions->constDataPoint3();
         Point3* uw = _unwrappedPositions->dataPoint3();
         for(size_t i = 0; i < n; i++){
@@ -111,7 +102,6 @@ void ClusterAnalysisEngine::perform(){
         }
     }
 
-    // Per-cluster outputs
     if(_computeCentersOfMass){
         _centersOfMass = std::make_shared<ParticleProperty>(0, ParticleProperty::PositionProperty, 3, false);
     }
@@ -151,11 +141,6 @@ void ClusterAnalysisEngine::doClusteringCutoff(std::vector<Point3>& centerOfMass
     const Point3* pos = _positions->constDataPoint3();
     Point3* uw = _unwrappedPositions ? _unwrappedPositions->dataPoint3() : nullptr;
 
-    // Fast path: no unwrap / centers-of-mass / gyration requested, so only the
-    // connected-component partition is needed. Run a lock-free parallel
-    // union-find over the neighbor graph instead of the serial BFS. Cluster ids
-    // are assigned by ascending minimum atom index (= union-find root), which
-    // matches the serial BFS seed order, so the labeling is identical (pre-sort).
     if(!uw){
         ConcurrentDisjointSet uf(n);
         tbb::parallel_for(tbb::blocked_range<size_t>(0, n), [&](const tbb::blocked_range<size_t>& r){
@@ -200,7 +185,6 @@ void ClusterAnalysisEngine::doClusteringCutoff(std::vector<Point3>& centerOfMass
             size_t curr = queue.front();
             queue.pop_front();
 
-            // Iterate neighbors
             for(CutoffNeighborFinder::Query q(neighFinder, curr); !q.atEnd(); q.next()){
                 const size_t nb = q.current();
                 if(nb >= n) continue;
@@ -281,7 +265,6 @@ void ClusterAnalysisEngine::computeGyration(const std::vector<Point3>& centersOf
         Vector3 d = uw[i] - centersOfMass[c];
         rg[c] += w * d.squaredLength();
         double* t = gt + c * 6;
-        // Order: xx, yy, zz, xy, xz, yz (6 comps)
         t[0] += w * d.x() * d.x();
         t[1] += w * d.y() * d.y();
         t[2] += w * d.z() * d.z();
@@ -341,19 +324,16 @@ void ClusterAnalysisEngine::sortClustersBySize(){
     std::vector<size_t> mapping(_numClusters);
     std::iota(mapping.begin(), mapping.end(), size_t(0));
 
-    // Sort mapping by clusterSizes desc
     std::sort(mapping.begin(), mapping.end(), [&](size_t a, size_t b){
         return _clusterSizes->getInt64(a) > _clusterSizes->getInt64(b);
     });
 
-    // Build inverse mapping: oldClusterIndex -> newClusterIndex (0 ... k - 1)
     std::vector<size_t> inv(_numClusters + 1);
     inv[0] = 0;
     for(size_t newIdx = 0; newIdx < _numClusters; newIdx++){
         inv[mapping[newIdx] + 1] = newIdx + 1;
     }
 
-    // Remap particle cluster IDs
     const size_t n = _positions->size();
     for(size_t i = 0; i < n; i++){
         int cid = _particleClusters->getInt(i);
@@ -362,7 +342,6 @@ void ClusterAnalysisEngine::sortClustersBySize(){
         }
     }
 
-    // Reorder clusterSizes/ids
     auto reorder_int64 = [&](std::shared_ptr<ParticleProperty>& prop){
         if(!prop) return;
         std::vector<std::int64_t> tmp(_numClusters);
