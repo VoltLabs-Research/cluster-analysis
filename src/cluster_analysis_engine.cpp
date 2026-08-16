@@ -14,7 +14,6 @@ namespace Volt{
 
 using namespace Volt::Particles;
 
-namespace{
 struct ConcurrentDisjointSet{
     std::vector<std::atomic<uint32_t>> parent;
     explicit ConcurrentDisjointSet(size_t n) : parent(n){
@@ -37,7 +36,6 @@ struct ConcurrentDisjointSet{
         }
     }
 };
-}
 
 ClusterAnalysisEngine::ClusterAnalysisEngine(
     ParticleProperty* positions,
@@ -68,7 +66,6 @@ ClusterAnalysisEngine::ClusterAnalysisEngine(
         throw std::runtime_error("ClusterAnalysisEngine: cutoff must be > 0 for cutoff clustering");
     }
 }
-
 
 void ClusterAnalysisEngine::perform(){
     const size_t n = _positions->size();
