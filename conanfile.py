@@ -1,10 +1,12 @@
+import json
+import os
+
 from conan import ConanFile
 from conan.tools.cmake import CMake, CMakeToolchain, CMakeDeps, cmake_layout
 
 
 class ClusterAnalysisConan(ConanFile):
     name = "cluster-analysis"
-    version = "2.0.3"
     package_type = "static-library"
     license = "MIT"
     settings = "os", "arch", "compiler", "build_type"
@@ -16,7 +18,13 @@ class ClusterAnalysisConan(ConanFile):
         "spdlog/1.14.1",
         "nlohmann_json/3.11.3",
     )
+    exports = "vpm.json"
     exports_sources = "CMakeLists.txt", "include/*", "src/*"
+
+    def set_version(self):
+        manifest = os.path.join(self.recipe_folder, "vpm.json")
+        with open(manifest, encoding="utf-8") as stream:
+            self.version = json.load(stream)["version"]
 
     def layout(self):
         cmake_layout(self)
