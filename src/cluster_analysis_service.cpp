@@ -97,11 +97,8 @@ json ClusterAnalysisService::compute(const LammpsParser::Frame& frame, const std
 
     if(!outputFilename.empty()){
         const std::string outputPath = outputFilename + "_cluster_analysis.parquet";
-        if(JsonUtils::writeJsonToParquet(result, outputPath, false)){
-            spdlog::info("Cluster analysis parquet written to {}", outputPath);
-        }else{
-            spdlog::warn("Could not write cluster analysis parquet: {}", outputPath);
-        }
+        JsonUtils::writeJsonToParquet(result, outputPath, false);
+        spdlog::info("Cluster analysis parquet written to {}", outputPath);
 
         const std::string atomsPath = outputFilename + "_atoms.parquet";
         streamAtomsToParquet(atomsPath, frame,
