@@ -17,7 +17,8 @@
   "platforms": [
     "linux-x86_64",
     "darwin-arm64",
-    "windows-x86_64"
+    "windows-x86_64",
+    "wasm-wasm32"
   ],
   "coretoolkit": "1.0.0",
   "files": [
