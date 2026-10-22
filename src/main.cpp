@@ -47,13 +47,16 @@ int main(int argc, char* argv[]) {
     initLogging("volt-cluster-analysis");
     spdlog::info("Using {} threads (OneTBB)", requestedThreads);
 
+    const OptionReader options(descriptor, opts);
+    spdlog::info("Parameters: cutoff={}, sort_by_size={}, unwrap={}, centers_of_mass={}, radius_of_gyration={}",
+        options.number("--cutoff"), options.boolean("--sort_by_size"), options.boolean("--unwrap"),
+        options.boolean("--centers_of_mass"), options.boolean("--radius_of_gyration"));
+
     LammpsParser::Frame frame;
     if (!parseFrame(filename, frame)) return 1;
 
     outputBase = deriveOutputBase(filename, outputBase);
     spdlog::info("Output base: {}", outputBase);
-
-    const OptionReader options(descriptor, opts);
 
     ClusterAnalysisService analyzer;
     analyzer.setCutoff(options.number("--cutoff"));
