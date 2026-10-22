@@ -1,5 +1,6 @@
 #include <volt/cluster_analysis_engine.h>
 #include <volt/analysis/cutoff_neighbor_finder.h>
+#include <volt/core/progress.h>
 #include <spdlog/spdlog.h>
 #include <algorithm>
 #include <numeric>
@@ -132,13 +133,16 @@ void ClusterAnalysisEngine::perform(){
 void ClusterAnalysisEngine::doClusteringCutoff(std::vector<Point3>& centerOfMass){
     const std::size_t n = _positions->size();
 
+    const Stopwatch neighborTimer;
     CutoffNeighborFinder neighFinder;
     if(!neighFinder.prepare(_cutoff, _positions, _simCell)) return;
+    spdlog::info("  Neighbor grid ready in {}", neighborTimer.elapsed());
 
     const Point3* pos = _positions->constDataPoint3();
     Point3* uw = _unwrappedPositions ? _unwrappedPositions->dataPoint3() : nullptr;
 
     if(!uw){
+        ProgressReporter progress("  Joining neighbor pairs", n);
         ConcurrentDisjointSet uf(n);
         tbb::parallel_for(tbb::blocked_range<size_t>(0, n), [&](const tbb::blocked_range<size_t>& r){
             for(size_t i = r.begin(); i < r.end(); ++i){
@@ -147,6 +151,7 @@ void ClusterAnalysisEngine::doClusteringCutoff(std::vector<Point3>& centerOfMass
                     if(nb < n) uf.unite((uint32_t)i, (uint32_t)nb);
                 }
             }
+            progress.advance(r.size());
         });
 
         _numClusters = 0;
@@ -159,9 +164,12 @@ void ClusterAnalysisEngine::doClusteringCutoff(std::vector<Point3>& centerOfMass
         for(size_t i = 0; i < n; i++){
             _particleClusters->setInt(i, _particleClusters->getInt((size_t)uf.find((uint32_t)i)));
         }
+        spdlog::info("  Union-find over neighbor pairs done in {}", progress.elapsed());
         return;
     }
 
+    ProgressReporter progress("  Flood-filling clusters", n);
+    std::size_t visited = 0;
     std::deque<size_t> queue;
     for(size_t seed = 0; seed < n; seed++){
         if(_particleClusters->getInt(seed) != -1){
@@ -181,6 +189,7 @@ void ClusterAnalysisEngine::doClusteringCutoff(std::vector<Point3>& centerOfMass
         while(!queue.empty()){
             size_t curr = queue.front();
             queue.pop_front();
+            progress.update(++visited);
 
             for(CutoffNeighborFinder::Query q(neighFinder, curr); !q.atEnd(); q.next()){
                 const size_t nb = q.current();
@@ -221,6 +230,7 @@ void ClusterAnalysisEngine::doClusteringCutoff(std::vector<Point3>& centerOfMass
             }
         }
     }
+    spdlog::info("  Flood fill with unwrapped coordinates done in {}", progress.elapsed());
 
     _largestClusterSize = 0;
     if(_centersOfMass){
