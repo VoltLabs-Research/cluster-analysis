@@ -1,5 +1,6 @@
 #include <volt/cli/common.h>
 #include <volt/cluster_analysis_service.h>
+#include <volt/core/progress.h>
 #include <volt/plugin/option_reader.h>
 #include <oneapi/tbb/global_control.h>
 
@@ -45,6 +46,7 @@ int main(int argc, char* argv[]) {
         static_cast<std::size_t>(requestedThreads)
     );
     initLogging("volt-cluster-analysis");
+    const Stopwatch runTimer;
     spdlog::info("Using {} threads (OneTBB)", requestedThreads);
 
     const OptionReader options(descriptor, opts);
@@ -71,11 +73,11 @@ int main(int argc, char* argv[]) {
     json result = analyzer.compute(frame, outputBase);
 
     if (result.value("is_failed", false)) {
-        spdlog::error("Analysis failed: {}", result.value("error", "Unknown error"));
+        spdlog::error("Analysis failed after {}: {}", runTimer.elapsed(), result.value("error", "Unknown error"));
         return 1;
     }
 
-    spdlog::info("Cluster analysis completed.");
+    spdlog::info("{} completed in {}.", descriptor.description, runTimer.elapsed());
 
     return 0;
 }
