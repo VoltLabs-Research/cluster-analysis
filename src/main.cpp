@@ -68,7 +68,6 @@ int main(int argc, char* argv[]) {
         options.boolean("--radius_of_gyration")
     );
 
-    spdlog::info("Starting cluster analysis...");
     json result = analyzer.compute(frame, outputBase);
 
     if (result.value("is_failed", false)) {
