@@ -74,9 +74,6 @@ int main(int argc, char* argv[]) {
     }
 
     spdlog::info("Cluster analysis completed.");
-    spdlog::info("Clusters: {}, largest size: {}",
-        result.value("cluster_count", 0),
-        result.value("largest_cluster_size", 0));
 
     return 0;
 }
