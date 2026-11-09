@@ -133,10 +133,13 @@ void ClusterAnalysisEngine::perform(){
 void ClusterAnalysisEngine::doClusteringCutoff(std::vector<Point3>& centerOfMass){
     const std::size_t n = _positions->size();
 
+    // The neighbor grid, then joining or flood-filling the clusters.
+    ProgressSteps steps({1.0, 2.0});
     const Stopwatch neighborTimer;
     CutoffNeighborFinder neighFinder;
     if(!neighFinder.prepare(_cutoff, _positions, _simCell)) return;
     spdlog::info("  Neighbor grid ready in {}", neighborTimer.elapsed());
+    steps.next();
 
     const Point3* pos = _positions->constDataPoint3();
     Point3* uw = _unwrappedPositions ? _unwrappedPositions->dataPoint3() : nullptr;

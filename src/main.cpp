@@ -54,6 +54,10 @@ int main(int argc, char* argv[]) {
         options.number("--cutoff"), options.boolean("--sort_by_size"), options.boolean("--unwrap"),
         options.boolean("--centers_of_mass"), options.boolean("--radius_of_gyration"));
 
+    // Reading the input, then the analysis, the steps pluginMain takes for every other plugin.
+    JobProgress& progress = JobProgress::instance();
+    progress.beginInput();
+
     LammpsParser::Frame frame;
     if (!parseFrame(filename, frame)) return 1;
 
@@ -70,6 +74,7 @@ int main(int argc, char* argv[]) {
         options.boolean("--radius_of_gyration")
     );
 
+    progress.beginAnalysis(descriptor.description);
     json result = analyzer.compute(frame, outputBase);
 
     if (result.value("is_failed", false)) {
@@ -78,6 +83,7 @@ int main(int argc, char* argv[]) {
     }
 
     spdlog::info("{} completed in {}.", descriptor.description, runTimer.elapsed());
+    progress.finish();
 
     return 0;
 }

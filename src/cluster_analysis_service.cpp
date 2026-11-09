@@ -130,6 +130,8 @@ json ClusterAnalysisService::compute(const LammpsParser::Frame& frame, const std
     if(!positions)
         return AnalysisResult::failure("Failed to create position property");
 
+    // Clustering, the cluster table, then the atoms table.
+    ProgressSteps steps({2.0, 1.0, 3.0});
     spdlog::info("Clustering {} atoms within cutoff {}...", frame.natoms, _cutoff);
     const Stopwatch timer;
 
@@ -156,6 +158,7 @@ json ClusterAnalysisService::compute(const LammpsParser::Frame& frame, const std
     const size_t k = engine.numClusters();
     spdlog::info("Found {} clusters in {}", k, timer.elapsed());
     logClusterSizes(engine, static_cast<std::size_t>(frame.natoms), _cutoff);
+    steps.next();
 
     json clusterList = json::array();
     for(size_t ci = 0; ci < k; ci++){
@@ -188,6 +191,7 @@ json ClusterAnalysisService::compute(const LammpsParser::Frame& frame, const std
         const std::string outputPath = outputFilename + "_cluster_analysis.parquet";
         JsonUtils::writeJsonToParquet(result, outputPath, false);
         spdlog::info("Cluster analysis parquet written to {}", outputPath);
+        steps.next();
 
         const std::string atomsPath = outputFilename + "_atoms.parquet";
         streamAtomsToParquet(atomsPath, frame,
