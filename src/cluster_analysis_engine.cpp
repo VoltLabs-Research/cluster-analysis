@@ -137,7 +137,9 @@ void ClusterAnalysisEngine::doClusteringCutoff(std::vector<Point3>& centerOfMass
     ProgressSteps steps({1.0, 2.0});
     const Stopwatch neighborTimer;
     CutoffNeighborFinder neighFinder;
-    if(!neighFinder.prepare(_cutoff, _positions, _simCell)) return;
+    if(!neighFinder.prepare(_cutoff, _positions, _simCell))
+        throw std::runtime_error(fmt::format(
+            "ClusterAnalysisEngine: could not prepare the neighbor grid for cutoff {}; check the cutoff and the cell.", _cutoff));
     spdlog::info("  Neighbor grid ready in {}", neighborTimer.elapsed());
     steps.next();
 
