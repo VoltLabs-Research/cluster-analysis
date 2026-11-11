@@ -12,6 +12,7 @@
           "modifier": {
             "name": "Cluster Analysis",
             "key": "cluster-analysis",
+            "category": "Clustering",
             "icon": "HiCube",
             "author": "Rodolfo Herrera",
             "license": "MIT",
