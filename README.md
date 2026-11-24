@@ -5,6 +5,7 @@ Groups atoms into clusters by distance (cutoff) and optionally computes centers 
 ## Install
 
 ```bash
+npm install -g @voltstack/vpm
 vpm install @voltlabs/cluster-analysis
 ```
 
