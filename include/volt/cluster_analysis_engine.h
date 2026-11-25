@@ -8,12 +8,14 @@
 #include <vector>
 #include <deque>
 #include <atomic>
+#include <cstdint>
 
 namespace Volt{
 
 using namespace Particles;
 
 class CutoffNeighborFinder;
+class ClusterAnalysisLog;
 
 class ClusterAnalysis{
 public:
@@ -25,6 +27,14 @@ public:
 
 class ClusterAnalysisEngine{
 public:
+    // A union-find over atom indices that parallel threads can join; each set is rooted at its lowest index.
+    struct ConcurrentDisjointSet{
+        std::vector<std::atomic<uint32_t>> parent;
+        explicit ConcurrentDisjointSet(size_t n);
+        uint32_t find(uint32_t x) const;
+        void unite(uint32_t a, uint32_t b);
+    };
+
     ClusterAnalysisEngine(
         ParticleProperty* positions,
         const SimulationCell& cell,
@@ -36,7 +46,7 @@ public:
         bool computeRadiusOfGyration
     );
     
-    void perform();
+    void perform(ClusterAnalysisLog& log);
 
     std::shared_ptr<ParticleProperty> particleClusters() const{
         return _particleClusters;
@@ -79,7 +89,7 @@ public:
     }
 
 private:
-    void doClusteringCutoff(std::vector<Point3>& centersOfMass);
+    void doClusteringCutoff(std::vector<Point3>& centersOfMass, ClusterAnalysisLog& log);
     void computeGyration(const std::vector<Point3>& centersOfMass);
     void buildClusterSizes();
     void buildClusterIds();

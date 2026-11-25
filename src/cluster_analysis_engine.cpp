@@ -1,7 +1,7 @@
 #include <volt/cluster_analysis_engine.h>
 #include <volt/analysis/cutoff_neighbor_finder.h>
+#include <volt/cluster_analysis_log.h>
 #include <volt/core/progress.h>
-#include <spdlog/spdlog.h>
 #include <algorithm>
 #include <numeric>
 #include <random>
@@ -15,28 +15,27 @@ namespace Volt{
 
 using namespace Volt::Particles;
 
-struct ConcurrentDisjointSet{
-    std::vector<std::atomic<uint32_t>> parent;
-    explicit ConcurrentDisjointSet(size_t n) : parent(n){
-        for(size_t i = 0; i < n; i++) parent[i].store((uint32_t)i, std::memory_order_relaxed);
+ClusterAnalysisEngine::ConcurrentDisjointSet::ConcurrentDisjointSet(size_t n) : parent(n){
+    for(size_t i = 0; i < n; i++) parent[i].store((uint32_t)i, std::memory_order_relaxed);
+}
+
+uint32_t ClusterAnalysisEngine::ConcurrentDisjointSet::find(uint32_t x) const{
+    while(true){
+        uint32_t p = parent[x].load(std::memory_order_acquire);
+        if(p == x) return x;
+        x = p;
     }
-    uint32_t find(uint32_t x) const{
-        while(true){
-            uint32_t p = parent[x].load(std::memory_order_acquire);
-            if(p == x) return x;
-            x = p;
-        }
+}
+
+void ClusterAnalysisEngine::ConcurrentDisjointSet::unite(uint32_t a, uint32_t b){
+    for(;;){
+        a = find(a); b = find(b);
+        if(a == b) return;
+        uint32_t hi = a > b ? a : b, lo = a > b ? b : a;
+        uint32_t expected = hi;
+        if(parent[hi].compare_exchange_strong(expected, lo, std::memory_order_acq_rel)) return;
     }
-    void unite(uint32_t a, uint32_t b){
-        for(;;){
-            a = find(a); b = find(b);
-            if(a == b) return;
-            uint32_t hi = a > b ? a : b, lo = a > b ? b : a;
-            uint32_t expected = hi;
-            if(parent[hi].compare_exchange_strong(expected, lo, std::memory_order_acq_rel)) return;
-        }
-    }
-};
+}
 
 ClusterAnalysisEngine::ClusterAnalysisEngine(
     ParticleProperty* positions,
@@ -68,7 +67,7 @@ ClusterAnalysisEngine::ClusterAnalysisEngine(
     }
 }
 
-void ClusterAnalysisEngine::perform(){
+void ClusterAnalysisEngine::perform(ClusterAnalysisLog& log){
     const size_t n = _positions->size();
 
     if(n == 0){
@@ -116,7 +115,7 @@ void ClusterAnalysisEngine::perform(){
     std::vector<Point3> centers;
     centers.reserve(128);
 
-    doClusteringCutoff(centers);
+    doClusteringCutoff(centers, log);
 
     if(_computeRadiusOfGyration){
         computeGyration(centers);
@@ -130,17 +129,18 @@ void ClusterAnalysisEngine::perform(){
     }
 }
 
-void ClusterAnalysisEngine::doClusteringCutoff(std::vector<Point3>& centerOfMass){
+void ClusterAnalysisEngine::doClusteringCutoff(std::vector<Point3>& centerOfMass, ClusterAnalysisLog& log){
     const std::size_t n = _positions->size();
 
-    // The neighbor grid, then joining or flood-filling the clusters.
-    ProgressSteps steps({1.0, 2.0});
-    const Stopwatch neighborTimer;
+    ProgressSteps steps({
+        {"Building the neighbor grid", 1.0},
+        {"Building clusters", 2.0},
+    });
     CutoffNeighborFinder neighFinder;
     if(!neighFinder.prepare(_cutoff, _positions, _simCell))
         throw std::runtime_error("ClusterAnalysisEngine: could not prepare the neighbor grid for cutoff "
             + std::to_string(_cutoff) + "; check the cutoff and the cell.");
-    spdlog::info("  Neighbor grid ready in {}", neighborTimer.elapsed());
+    log.dump(neighFinder);
     steps.next();
 
     const Point3* pos = _positions->constDataPoint3();
@@ -169,7 +169,7 @@ void ClusterAnalysisEngine::doClusteringCutoff(std::vector<Point3>& centerOfMass
         for(size_t i = 0; i < n; i++){
             _particleClusters->setInt(i, _particleClusters->getInt((size_t)uf.find((uint32_t)i)));
         }
-        spdlog::info("  Union-find over neighbor pairs done in {}", progress.elapsed());
+        log.dump(uf);
         return;
     }
 
@@ -235,7 +235,7 @@ void ClusterAnalysisEngine::doClusteringCutoff(std::vector<Point3>& centerOfMass
             }
         }
     }
-    spdlog::info("  Flood fill with unwrapped coordinates done in {}", progress.elapsed());
+    log.dump(*_unwrappedPositions);
 
     _largestClusterSize = 0;
     if(_centersOfMass){

@@ -1,95 +1,16 @@
-#include <volt/cli/common.h>
+#include <volt/plugin/plugin_entry.h>
 #include <volt/cluster_analysis_service.h>
-#include <volt/core/progress.h>
-#include <volt/plugin/option_reader.h>
-#include <oneapi/tbb/global_control.h>
 
 using namespace Volt;
-using namespace Volt::CLI;
 using namespace Volt::Plugin;
+using S = ClusterAnalysisService;
 
-static PluginDescriptor buildDescriptor() {
-    return {
-        "volt-cluster-analysis",
-        "Cluster Analysis",
-        {
-            {"--cutoff", "float", "Cutoff radius for neighbor search.", "3.2", {}, ""},
-            {"--sort_by_size", "bool", "Sort clusters by size (desc).", "true", {}, ""},
-            {"--unwrap", "bool", "Unwrap particle coordinates inside clusters.", "false", {}, ""},
-            {"--centers_of_mass", "bool", "Compute cluster centers (uniform weights).", "false", {}, ""},
-            {"--radius_of_gyration", "bool",
-             "Compute radii + tensors of gyration (uniform weights).", "false", {}, ""},
-        }
-    };
-}
+static const std::vector<OptionBinding<S>> bindings = {
+    opt("--cutoff",             "Cutoff radius for neighbor search.",                     3.2,   &S::setCutoff),
+    opt("--sort_by_size",       "Sort clusters by size (desc).",                          true,  &S::setSortBySize),
+    opt("--unwrap",             "Unwrap particle coordinates inside clusters.",           false, &S::setUnwrapParticleCoordinates),
+    opt("--centers_of_mass",    "Compute cluster centers (uniform weights).",             false, &S::setComputeCentersOfMass),
+    opt("--radius_of_gyration", "Compute radii + tensors of gyration (uniform weights).", false, &S::setComputeRadiusOfGyration),
+};
 
-int main(int argc, char* argv[]) {
-    const PluginDescriptor descriptor = buildDescriptor();
-
-    if (argc < 2) {
-        showPluginUsage(argv[0], descriptor);
-        return 1;
-    }
-
-    std::string filename, outputBase;
-    auto opts = parseArgs(argc, argv, filename, outputBase);
-
-    if (auto exitCode = handleIntrospection(argv[0], descriptor, opts, filename)) {
-        return *exitCode;
-    }
-
-    const int requestedThreads = std::max(1, getInt(opts, "--threads", std::thread::hardware_concurrency() > 0
-        ? static_cast<int>(std::thread::hardware_concurrency())
-        : 1));
-    oneapi::tbb::global_control parallelControl(
-        oneapi::tbb::global_control::max_allowed_parallelism,
-        static_cast<std::size_t>(requestedThreads)
-    );
-    initLogging("volt-cluster-analysis");
-    const Stopwatch runTimer;
-    spdlog::info("Using {} threads (OneTBB)", requestedThreads);
-
-    const OptionReader options(descriptor, opts);
-    spdlog::info("Parameters: cutoff={}, sort_by_size={}, unwrap={}, centers_of_mass={}, radius_of_gyration={}",
-        options.number("--cutoff"), options.boolean("--sort_by_size"), options.boolean("--unwrap"),
-        options.boolean("--centers_of_mass"), options.boolean("--radius_of_gyration"));
-
-    // Reading the input, then the analysis, the steps pluginMain takes for every other plugin.
-    JobProgress& progress = JobProgress::instance();
-    progress.beginInput();
-
-    LammpsParser::Frame frame;
-    if (!parseFrame(filename, frame)) return 1;
-
-    outputBase = deriveOutputBase(filename, outputBase);
-    spdlog::info("Output base: {}", outputBase);
-
-    ClusterAnalysisService analyzer;
-    analyzer.setCutoff(options.number("--cutoff"));
-
-    analyzer.setOptions(
-        options.boolean("--sort_by_size"),
-        options.boolean("--unwrap"),
-        options.boolean("--centers_of_mass"),
-        options.boolean("--radius_of_gyration")
-    );
-
-    progress.beginAnalysis(descriptor.description);
-    // The engine throws on bad input; report it as the failure it is instead of aborting.
-    json result;
-    try {
-        result = analyzer.compute(frame, outputBase);
-    } catch (const std::exception& error) {
-        result = json{{"is_failed", true}, {"error", error.what()}};
-    }
-
-    if (result.value("is_failed", false)) {
-        spdlog::error("Analysis failed after {}: {}", runTimer.elapsed(), result.value("error", "Unknown error"));
-        return 1;
-    }
-
-    spdlog::info("{} completed in {}.", descriptor.description, runTimer.elapsed());
-    progress.finish();
-
-    return 0;
-}
+VOLT_SERVICE_PLUGIN("volt-cluster-analysis", "Cluster Analysis", S, bindings)
