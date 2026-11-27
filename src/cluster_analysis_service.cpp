@@ -25,10 +25,9 @@ const OutputFile<ClusterAnalysisService, ClusterAnalysisService::Outputs> Cluste
                 const int cid = clusters ? clusters->getInt(i) : 0;
                 return cid > 0 ? "Cluster_" + std::to_string(cid) : std::string("Unclustered");
             },
-            [&](ColumnarAtomWriter& w, std::size_t i){
+            [&](ColumnarRowWriter& w, std::size_t i){
                 if(unwrapped){
-                    const Point3 pu = unwrapped->getPoint3(i);
-                    w.field("pos_unwrapped", std::vector<double>{pu.x(), pu.y(), pu.z()});
+                    w.field("pos_unwrapped", unwrapped->getPoint3(i));
                 }
                 w.field("cluster_id", clusters ? clusters->getInt(i) : 0);
             }
@@ -102,12 +101,9 @@ json ClusterAnalysisService::compute(const LammpsParser::Frame& frame, const std
     json clusterList = json::array();
     for(size_t ci = 0; ci < k; ci++){
         json c;
-        c["cluster_id"] = static_cast<int64_t>(ci + 1);
+        c["cluster_id"] = ci + 1;
         c["size"] = clusterSizes ? clusterSizes->getInt64(ci) : 0;
-        if(centers){
-            const Point3 p = centers->getPoint3(ci);
-            c["center"] = {p.x(), p.y(), p.z()};
-        }
+        if(centers) c["center"] = centers->getPoint3(ci);
         if(rg) c["radius_of_gyration"] = rg->getDouble(ci);
         if(gt){
             json tensor = json::array();
@@ -120,7 +116,7 @@ json ClusterAnalysisService::compute(const LammpsParser::Frame& frame, const std
     json result;
     result["main_listing"] = {
         { "total_atoms", frame.natoms },
-        { "clusters", static_cast<int>(k) },
+        { "clusters", k },
         { "largest_cluster_size", engine.largestClusterSize() },
         { "has_zero_weight_cluster", engine.hasZeroWeightCluster() }
     };
